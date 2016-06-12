@@ -32,6 +32,13 @@
                            (even? x) :vertical
                            (even? y) :horizontal)}])))))
 
+
+(defn print-red []
+  (print "\u001b[31;1m"))
+
+(defn print-reset []
+  (print "\u001b[37m"))
+
 (defmulti print-element :type)
 
 (defmethod print-element :vertex [v]
@@ -43,13 +50,13 @@
     (print (:draw e))
     (case (:dir e)
       :junction (if (:active e)
-                  (print "\u254b")
+                  (do (print-red) (print "\u254b") (print-reset))
                   (print "\u253c"))
       :vertical (if (:active e)
-                  (print "\u2503")
+                  (do (print-red) (print "\u2503") (print-reset))
                   (print "\u2502"))
       :horizontal (if (:active e)
-                    (print "\u2501")
+                    (do (print-red) (print "\u2501") (print-reset))
                     (print "\u2500"))
       (print "?"))))
 
@@ -141,34 +148,8 @@
 (defn neighbors [grid gx gy]
   (vec (vals (neighbors-idx grid gx gy))))
 
-#_(defn search [grid stack check-fn]
-  (println "Stack:" stack)
-  (let [top (assoc (peek stack) :active true)
-        x (:x top)
-        y (:y top)
-        neis (filter #(= :edge (:type %))
-                     (remove :active (neighbors grid x y)))
-        adj-grid (assoc grid [x y] top)]
-    (println "Neighs:" neis)
-    (if (empty? neis)
-      (if (and (:end top)
-               (check-fn adj-grid))
-        [stack adj-grid]
-        nil)
-      (reduce (fn [_ step]
-                (let [chain (search adj-grid
-                                    (conj stack step)
-                                    check-fn)]
-                  (println "RStack:" (conj stack step))
-                  (println "Chain:" chain)
-                  (println)
-                  (if chain
-                    (reduced chain)
-                    nil)))
-              neis))))
-
 (defn search [grid stack check-fn]
-  (println "Stack:" stack)
+  #_(println "Stack:" stack)
   (let [top (assoc (peek stack) :active true)
         x (:x top)
         y (:y top)
@@ -176,15 +157,17 @@
                      (remove :active (neighbors grid x y)))
         adj-grid (assoc grid [x y] top)]
     #_(println "Neighs:" neis)
-    (if (empty? neis)
-      (if (and (:end top)
-               (check-fn adj-grid))
+    (if (:end top)
+      (if (check-fn adj-grid)
         [stack adj-grid]
         nil)
-      (first (filter identity
-                     (map #(search adj-grid
-                                   (conj stack %)
-                                   check-fn) neis))))))
+      (loop [steps neis]
+        (if-let [step (first steps)]
+          (let [path (search adj-grid (conj stack step) check-fn)]
+            (if path
+              path
+              (if (next steps)
+                (recur (next steps))))))))))
 
 (defn search-init [grid start check-fn]
   (search grid [start] check-fn))
