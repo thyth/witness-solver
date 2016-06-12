@@ -136,7 +136,10 @@
                  [x y (inc (- (int constr) (int \1)))])
         gridc (reduce (fn [g [x y c]]
                         (update-vertex g x y
-                                       #(merge % {:draw c
+                                       #(merge % {:draw (case c
+                                                          3 "\u2234"
+                                                          2 ":"
+                                                          1 "\u25b2")
                                                   :triangle c})))
                       grid insert)]
     (-> gridc (mark-start 0 8) (mark-end 8 0))))
