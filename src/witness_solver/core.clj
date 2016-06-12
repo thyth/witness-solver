@@ -11,26 +11,55 @@
 ; 6 e e e e e
 ; y
 
+(defn neighbors-idx [grid gx gy]
+  (let [up (grid [gx (dec gy)])
+        down (grid [gx (inc gy)])
+        left (grid [(dec gx) gy])
+        right (grid [(inc gx) gy])
+        f (fn [n x c] (if c (conj n [x c]) n))]
+    (-> {} (f :up up) (f :down down) (f :left left) (f :right right))))
+
+(defn fix-junctions [grid]
+  (let [draw (for [x (range 0 (:grid-w grid))
+                   y (range 0 (:grid-h grid))
+                   :let [elem (grid [x y])
+                         sides (into #{} (keys (neighbors-idx grid x y)))]
+                   :when (= :junction (:dir elem))]
+               (condp = sides
+                 #{:up :right} [[x y] "\u2514" "\u2517"]
+                 #{:right :down} [[x y] "\u250c" "\u250f"]
+                 #{:down :left} [[x y] "\u2510" "\u2513"]
+                 #{:left :up} [[x y] "\u2518" "\u251b"]
+                 #{:down :up :right} [[x y] "\u251c" "\u2523"]
+                 #{:down :right :left} [[x y] "\u252c" "\u2533"]
+                 #{:up :right :left} [[x y] "\u2534" "\u253b"]
+                 #{:down :up :left} [[x y] "\u2524" "\u252b"]
+                 #{:down :up :right :left} nil))]
+    (reduce (fn [g [k standard bold]]
+              (update g k merge {:junction standard
+                                 :bold-junction bold}))
+            grid (filter identity draw))))
+
 ; build-grid of height * width verticies and fill in edges
 (defn build-grid [height width]
   (let [grid-w (inc (* 2 width))
         grid-h (inc (* 2 height))]
-    (into {:width width, :grid-w grid-w
-           :height height, :grid-h grid-h}
-          (for [x (range 0 grid-w)
-                y (range 0 grid-h)]
-            (if (and (odd? x) (odd? y))
-              [[x y]
-               {:type :vertex
-                :x x
-                :y y}]
-              [[x y]
-               {:type :edge
-                :x x
-                :y y
-                :dir (cond (and (even? x) (even? y)) :junction
-                           (even? x) :vertical
-                           (even? y) :horizontal)}])))))
+    (fix-junctions (into {:width  width, :grid-w grid-w
+                          :height height, :grid-h grid-h}
+                         (for [x (range 0 grid-w)
+                               y (range 0 grid-h)]
+                           (if (and (odd? x) (odd? y))
+                             [[x y]
+                              {:type :vertex
+                               :x    x
+                               :y    y}]
+                             [[x y]
+                              {:type :edge
+                               :x    x
+                               :y    y
+                               :dir  (cond (and (even? x) (even? y)) :junction
+                                           (even? x) :vertical
+                                           (even? y) :horizontal)}]))))))
 
 
 (defn print-red []
@@ -50,8 +79,14 @@
     (print (:draw e))
     (case (:dir e)
       :junction (if (:active e)
-                  (do (print-red) (print "\u254b") (print-reset))
-                  (print "\u253c"))
+                  (do (print-red)
+                      (if (:bold-junction e)
+                        (print (:bold-junction e))
+                        (print "\u254b"))
+                      (print-reset))
+                  (if (:junction e)
+                    (print (:junction e))
+                    (print "\u253c")))
       :vertical (if (:active e)
                   (do (print-red) (print "\u2503") (print-reset))
                   (print "\u2502"))
@@ -136,14 +171,6 @@
 
 (defn find-ends [grid]
   (find-predicate grid :end))
-
-(defn neighbors-idx [grid gx gy]
-  (let [up (grid [gx (dec gy)])
-        down (grid [gx (inc gy)])
-        left (grid [(dec gx) gy])
-        right (grid [(inc gx) gy])
-        f (fn [n x c] (if c (conj n [x c]) n))]
-    (-> {} (f :up up) (f :down down) (f :left left) (f :right right))))
 
 (defn neighbors [grid gx gy]
   (vec (vals (neighbors-idx grid gx gy))))
