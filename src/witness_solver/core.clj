@@ -17,7 +17,7 @@
         left (grid [(dec gx) gy])
         right (grid [(inc gx) gy])
         f (fn [n x c] (if c (conj n [x c]) n))]
-    (-> {} (f :up up) (f :down down) (f :left left) (f :right right))))
+    (-> {} (f :up up) (f :right right) (f :down down) (f :left left))))
 
 (defn fix-junctions [grid]
   (let [draw (for [x (range 0 (:grid-w grid))
@@ -63,7 +63,7 @@
 
 
 (defn print-red []
-  (print "\u001b[31;1m"))
+  (print "\u001b[31m"))
 
 (defn print-reset []
   (print "\u001b[37m"))
@@ -76,7 +76,9 @@
     (print " ")))
 (defmethod print-element :edge [e]
   (if (:draw e)
-    (print (:draw e))
+    (if (:active e)
+      (do (print-red) (print (:draw e)) (print-reset))
+      (print (:draw e)))
     (case (:dir e)
       :junction (if (:active e)
                   (do (print-red)
@@ -109,7 +111,7 @@
     (grid [grid-x grid-y])))
 
 (defn mark-start [grid x y]
-  (update grid [x y] merge {:draw "\u2588"
+  (update grid [x y] merge {:draw "\u25c9"
                             :start true}))
 
 (defn mark-end [grid gx gy]
