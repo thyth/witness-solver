@@ -386,10 +386,9 @@
                      (remove :active (neighbors grid x y)))
         adj-grid (assoc grid [x y] top)]
     #_(println "Neighs:" neis)
-    (if (:end top)
-      (if (check-fn adj-grid)
-        [stack adj-grid]
-        nil)
+    (if (and (:end top)
+             (check-fn adj-grid))
+      [stack adj-grid]
       (loop [steps neis]
         (if-let [step (first steps)]
           (let [path (search adj-grid (conj stack step) check-fn)]
@@ -403,3 +402,6 @@
 
 (defn search-auto [grid check-fn]
   (search-init grid (first (find-starts grid)) check-fn))
+
+(defn answer [grid]
+  (search-auto grid full-check))
