@@ -34,7 +34,7 @@
 
 
 (defn print-red []
-  (print "\u001b[31m"))
+  (print "\u001b[34m"))
 
 (defn print-reset []
   (print "\u001b[37m"))
