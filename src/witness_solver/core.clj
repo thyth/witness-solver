@@ -166,6 +166,8 @@
                                               #{:left :up} "\u2543"
                                               #{:up :right} "\u2544"
                                               #{:right :down} "\u2546"
+                                              #{:left :right} "\u253f"
+                                              #{:up :down} "\u2542"
                                               #{:down} "\u2541"
                                               #{:up} "\u2540"
                                               #{:right} "\u253e"
