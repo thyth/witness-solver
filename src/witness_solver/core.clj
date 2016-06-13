@@ -1,4 +1,5 @@
-(ns witness-solver.core)
+(ns witness-solver.core
+  (:require [clojure.set :as set]))
 
 ; A 3x2 vertex grid:
 ;   0 1 2 3 4 x
@@ -36,8 +37,10 @@
 (defn print-red []
   (print "\u001b[34m"))
 
+(def reset-color "\u001b[37m")
+
 (defn print-reset []
-  (print "\u001b[37m"))
+  (print reset-color))
 
 (defmulti print-element :type)
 
@@ -189,7 +192,7 @@
     (grid [grid-x grid-y])))
 
 (defn mark-start [grid x y]
-  (update grid [x y] merge {:draw "\u25c9"
+  (update grid [x y] merge {:draw "\u25cf"
                             :start true}))
 
 (defn mark-end [grid gx gy]
@@ -242,12 +245,109 @@
 (defn triangles-satisfied? [grid]
   (empty? (triangles-violations grid)))
 
+(defn bfs [grid open closed neighbor-fn]
+  (if-let [top (peek open)]
+    (let [neis (remove closed (neighbor-fn grid top))]
+      (recur grid (into (pop open) neis) (conj closed top) neighbor-fn))
+    closed))
+
+; which verts adjacent to this one are reachable?
+(defn reachable-adj-verts [grid [x y]]
+  (let [vert (get-vertex grid x y)
+        neis (neighbors-idx grid (:x vert) (:y vert))
+        clear-dirs (remove #(-> % second :active) neis)
+        clear-verts (filter identity
+                            (map (fn [[dir edge]]
+                                   (dir (neighbors-idx grid
+                                                       (:x edge)
+                                                       (:y edge))))
+                                 clear-dirs))
+        vert-coords (map (fn [{x :x y :y}]
+                           [(/ (dec x) 2)
+                            (/ (dec y) 2)])
+                         clear-verts)]
+    vert-coords))
+
+; find all vertex coordinates that share a region with the specified vertex
+(defn find-region [grid vx vy]
+  (bfs grid
+       [[vx vy]]
+       #{}
+       reachable-adj-verts))
+
+(defn mark-regions [grid]
+  (let [verts (for [x (range 0 (:width grid))
+                    y (range 0 (:height grid))
+                    :let [v (get-vertex grid x y)]
+                    :when v]
+                [x y])
+        vset (into #{} verts)]
+    (loop [grid grid
+           vset vset
+           idx 0]
+      (if-let [[tx ty :as top] (first vset)]
+        (let [region (find-region grid tx ty)]
+          (recur (reduce (fn [g [x y]]
+                           (update-vertex g x y #(assoc % :region idx)))
+                         grid
+                         region)
+                 (set/difference vset region)
+                 (inc idx)))
+        (assoc grid :regions idx)))))
+
+(defn print-regions [grid]
+  (let [marked (mark-regions grid)
+        drawn (into {}
+                    (map (fn [[k v]]
+                           (if (:region v)
+                             [k (assoc v :draw (:region v))]
+                             [k v]))
+                         marked))]
+    (print-grid drawn)))
+
+(defn index-color [idx]
+  (let [shift (rem (+ idx 1) 7)]
+    (str "\u001B[3" shift "m")))
+
+(defn mark-block [grid vx vy idx]
+  (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
+                                                  "\u25a0" reset-color)
+                                       :block idx
+                                       :square true})))
+
+(defn mark-star [grid vx vy idx]
+  (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
+                                                  "\u26b9" reset-color)
+                                       :block idx
+                                       :star true})))
+
+(defn mark-anticonstraint [grid vx vy]
+  (update-vertex grid vx vy #(merge % {:draw "Y"
+                                       :anticonstraint true})))
+
 (defn find-predicate [grid predicate]
   (for [x (range 0 (:grid-w grid))
         y (range 0 (:grid-h grid))
         :let [elem (grid [x y])]
         :when (predicate elem)]
     elem))
+
+(defn find-region-id [grid id]
+  (find-predicate grid #(= id (:region %))))
+
+(defn block-violations-region [grid id]
+  (let [region (find-region-id grid id)
+        blocks (filter :square region)
+        groups (group-by :block blocks)]
+    (if (< 1 (count groups))
+      blocks)))
+
+(defn block-violations [grid]
+  (mapcat (partial block-violations-region grid)
+          (range 0 (or (:regions grid) 0))))
+
+(defn block-satisfied? [grid]
+  (empty? (block-violations grid)))
 
 (defn find-starts [grid]
   (find-predicate grid :start))
@@ -257,6 +357,21 @@
 
 (defn neighbors [grid gx gy]
   (vec (vals (neighbors-idx grid gx gy))))
+
+(defn precheck-grid [grid]
+  (-> grid
+      mark-regions))
+
+; TODO anticonstraint by region
+(defn all-violations [grid]
+  (concat (triangles-violations grid)
+          (block-violations grid)))
+
+; run all constraint checks
+(defn full-check [grid]
+  (let [prechecked (precheck-grid grid)]
+    (if (empty? (all-violations prechecked))
+      prechecked)))
 
 (defn search [grid stack check-fn]
   #_(println "Stack:" stack)
