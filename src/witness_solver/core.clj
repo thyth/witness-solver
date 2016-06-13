@@ -47,7 +47,13 @@
 (defmethod print-element :vertex [v]
   (if (:draw v)
     (print (:draw v))
-    (print " ")))
+    (cond
+      (:triangle v) (case (:triangle v)
+                      3 (print "\u2234")
+                      2 (print ":")
+                      1 (print "\u25b2")
+                      (print " "))
+      :default (print " "))))
 (defmethod print-element :edge [e]
   (if (:draw e)
     (if (:active e)
@@ -203,6 +209,9 @@
         grid-y (inc (* 2 y))]
     (update grid [grid-x grid-y] f)))
 
+(defn mark-triangle [grid vx vy level]
+  (update-vertex grid vx vy #(merge % {:triangle level})))
+
 (defn create-challenge-puzzle [input]
   (let [constraints (mapv vec (partition 4 (format "%-16s" input)))
         grid (build-grid 4 4)
@@ -216,12 +225,7 @@
                              nil)]
                  [x y (inc (- (int constr) (int \1)))])
         gridc (reduce (fn [g [x y c]]
-                        (update-vertex g x y
-                                       #(merge % {:draw (case c
-                                                          3 "\u2234"
-                                                          2 ":"
-                                                          1 "\u25b2")
-                                                  :triangle c})))
+                        (mark-triangle g x y c))
                       grid insert)]
     (-> gridc (mark-start 0 8) (mark-end 8 0))))
 
@@ -317,7 +321,7 @@
 
 (defn mark-star [grid vx vy idx]
   (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
-                                                  "\u26b9" reset-color)
+                                                  "\u2737" reset-color)
                                        :block idx
                                        :star true})))
 
