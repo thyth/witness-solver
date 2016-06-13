@@ -11,55 +11,26 @@
 ; 6 e e e e e
 ; y
 
-(defn neighbors-idx [grid gx gy]
-  (let [up (grid [gx (dec gy)])
-        down (grid [gx (inc gy)])
-        left (grid [(dec gx) gy])
-        right (grid [(inc gx) gy])
-        f (fn [n x c] (if c (conj n [x c]) n))]
-    (-> {} (f :up up) (f :right right) (f :down down) (f :left left))))
-
-(defn fix-junctions [grid]
-  (let [draw (for [x (range 0 (:grid-w grid))
-                   y (range 0 (:grid-h grid))
-                   :let [elem (grid [x y])
-                         sides (into #{} (keys (neighbors-idx grid x y)))]
-                   :when (= :junction (:dir elem))]
-               (condp = sides
-                 #{:up :right} [[x y] "\u2514" "\u2517"]
-                 #{:right :down} [[x y] "\u250c" "\u250f"]
-                 #{:down :left} [[x y] "\u2510" "\u2513"]
-                 #{:left :up} [[x y] "\u2518" "\u251b"]
-                 #{:down :up :right} [[x y] "\u251c" "\u2523"]
-                 #{:down :right :left} [[x y] "\u252c" "\u2533"]
-                 #{:up :right :left} [[x y] "\u2534" "\u253b"]
-                 #{:down :up :left} [[x y] "\u2524" "\u252b"]
-                 #{:down :up :right :left} nil))]
-    (reduce (fn [g [k standard bold]]
-              (update g k merge {:junction standard
-                                 :bold-junction bold}))
-            grid (filter identity draw))))
-
 ; build-grid of height * width verticies and fill in edges
 (defn build-grid [height width]
   (let [grid-w (inc (* 2 width))
         grid-h (inc (* 2 height))]
-    (fix-junctions (into {:width  width, :grid-w grid-w
-                          :height height, :grid-h grid-h}
-                         (for [x (range 0 grid-w)
-                               y (range 0 grid-h)]
-                           (if (and (odd? x) (odd? y))
-                             [[x y]
-                              {:type :vertex
-                               :x    x
-                               :y    y}]
-                             [[x y]
-                              {:type :edge
-                               :x    x
-                               :y    y
-                               :dir  (cond (and (even? x) (even? y)) :junction
-                                           (even? x) :vertical
-                                           (even? y) :horizontal)}]))))))
+    (into {:width  width, :grid-w grid-w
+           :height height, :grid-h grid-h}
+          (for [x (range 0 grid-w)
+                y (range 0 grid-h)]
+            (if (and (odd? x) (odd? y))
+              [[x y]
+               {:type :vertex
+                :x    x
+                :y    y}]
+              [[x y]
+               {:type :edge
+                :x    x
+                :y    y
+                :dir  (cond (and (even? x) (even? y)) :junction
+                            (even? x) :vertical
+                            (even? y) :horizontal)}])))))
 
 
 (defn print-red []
@@ -101,9 +72,114 @@
   (dorun (map #(print-element (grid [% row]))
        (range 0 (:grid-w grid))))
   (print "\n"))
+
+(defn neighbors-idx [grid gx gy]
+  (let [up (grid [gx (dec gy)])
+        down (grid [gx (inc gy)])
+        left (grid [(dec gx) gy])
+        right (grid [(inc gx) gy])
+        f (fn [n x c] (if c (conj n [x c]) n))]
+    (-> {} (f :up up) (f :right right) (f :down down) (f :left left))))
+
+(defn fix-junctions [grid]
+  (let [draw (for [x (range 0 (:grid-w grid))
+                   y (range 0 (:grid-h grid))
+                   :let [elem (grid [x y])
+                         neis (neighbors-idx grid x y)
+                         sides (into #{} (keys neis))
+                         active-sides (into #{}
+                                            (map first
+                                                 (filter #(-> %
+                                                              second
+                                                              :active)
+                                                         neis)))]
+                   :when (= :junction (:dir elem))]
+               (condp = sides
+                 #{:up :right} [[x y]
+                                "\u2514"
+                                (condp = active-sides
+                                  #{:up} "\u2516"
+                                  #{:right} "\u2515"
+                                  "\u2517")]
+                 #{:right :down} [[x y]
+                                  "\u250c"
+                                  (condp = active-sides
+                                    #{:right} "\u250d"
+                                    #{:down} "\u250e"
+                                    "\u250f")]
+                 #{:down :left} [[x y]
+                                 "\u2510"
+                                 (condp = active-sides
+                                   #{:left} "\u2511"
+                                   #{:down} "\u2512"
+                                   "\u2513")]
+                 #{:left :up} [[x y]
+                               "\u2518"
+                               (condp = active-sides
+                                 #{:left} "\u2519"
+                                 #{:up} "\u251a"
+                                 "\u251b")]
+                 #{:down :up :right} [[x y]
+                                      "\u251c"
+                                      (condp = active-sides
+                                        #{:down :up} "\u2520"
+                                        #{:down :right} "\u2522"
+                                        #{:up :right} "\u2521"
+                                        #{:down} "\u251f"
+                                        #{:up} "\u251e"
+                                        #{:right} "\u251d"
+                                        "\u2523")]
+                 #{:down :right :left} [[x y]
+                                        "\u252c"
+                                        (condp = active-sides
+                                          #{:down :right} "\u2532"
+                                          #{:down :left} "\u2531"
+                                          #{:left :right} "\u252f"
+                                          #{:down} "\u2530"
+                                          #{:left} "\u252d"
+                                          #{:right} "\u252e"
+                                          "\u2566")]
+                 #{:up :right :left} [[x y]
+                                      "\u2534"
+                                      (condp = active-sides
+                                        #{:up :right} "\u253a"
+                                        #{:up :left} "\u2539"
+                                        #{:right :left} "\u2537"
+                                        #{:up} "\u2538"
+                                        #{:right} "\u2536"
+                                        #{:left} "\u2535"
+                                        "\u253b")]
+                 #{:down :up :left} [[x y]
+                                     "\u2524"
+                                     (condp = active-sides
+                                       #{:down :up} "\u2528"
+                                       #{:down :left} "\u252a"
+                                       #{:left :up} "\u2529"
+                                       #{:down} "\u2527"
+                                       #{:up} "\u2526"
+                                       #{:left} "\u2525"
+                                       "\u252b")]
+                 #{:down :up :right :left} [[x y]
+                                            "\u253c"
+                                            (condp = active-sides
+                                              #{:down :left} "\u2545"
+                                              #{:left :up} "\u2543"
+                                              #{:up :right} "\u2544"
+                                              #{:right :down} "\u2546"
+                                              #{:down} "\u2541"
+                                              #{:up} "\u2540"
+                                              #{:right} "\u253e"
+                                              #{:left} "\u253d"
+                                              "\u254b")]))]
+    (reduce (fn [g [k standard bold]]
+              (update g k merge {:junction standard
+                                 :bold-junction bold}))
+            grid (filter identity draw))))
+
 (defn print-grid [grid]
-  (dorun (map (partial print-row grid)
-              (range 0 (:grid-h grid)))))
+  (let [junction-grid (fix-junctions grid)]
+    (dorun (map (partial print-row junction-grid)
+                (range 0 (:grid-h junction-grid))))))
 
 (defn get-vertex [grid x y]
   (let [grid-x (inc (* 2 x))
