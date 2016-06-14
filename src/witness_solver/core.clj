@@ -376,20 +376,21 @@
   (let [region (find-region-id grid id)
         stars (filter :star region)
         colored (into #{} (filter :block region))]
-    (map (fn [star]
-           (let [minus (disj colored star)
-                 same-color (filter #(= (:block star)
-                                        (:block %))
-                                    minus)]
-             (if (not= 1 (count same-color))
-               star)))
-         stars)))
+    (filter identity
+            (map (fn [star]
+                   (let [minus (disj colored star)
+                         same-color (filter #(= (:block star)
+                                                (:block %))
+                                            minus)]
+                     (if (not= 1 (count same-color))
+                       star)))
+                 stars))))
 
 (defn star-violations [grid]
   (iterate-region-violations grid star-violations-region))
 
 (defn star-satisfied? [grid]
-  (empty (star-violations grid)))
+  (empty? (star-violations grid)))
 
 (defn find-starts [grid]
   (find-predicate grid :start))
