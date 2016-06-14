@@ -225,8 +225,12 @@
         grid-y (inc (* 2 y))]
     (update grid [grid-x grid-y] f)))
 
-(defn mark-triangle [grid vx vy level]
-  (update-vertex grid vx vy #(merge % {:triangle level})))
+(defn mark-triangle
+  ([grid vx vy level]
+   (update-vertex grid vx vy #(merge % {:triangle level})))
+  ([grid vx vy level color]
+   (update-vertex grid vx vy #(merge % {:triangle level
+                                        :color color}))))
 
 (defn create-challenge-puzzle [input]
   (let [constraints (mapv vec (partition 4 (format "%-16s" input)))
@@ -332,13 +336,13 @@
 (defn mark-block [grid vx vy idx]
   (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
                                                   "\u25a0" reset-color)
-                                       :block idx
+                                       :color idx
                                        :square true})))
 
 (defn mark-star [grid vx vy idx]
   (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
                                                   "\u2737" reset-color)
-                                       :block idx
+                                       :color idx
                                        :star true})))
 
 (defn mark-anticonstraint [grid vx vy]
@@ -362,7 +366,7 @@
 (defn block-violations-region [grid id]
   (let [region (find-region-id grid id)
         blocks (filter :square region)
-        groups (group-by :block blocks)]
+        groups (group-by :color blocks)]
     (if (< 1 (count groups))
       blocks)))
 
@@ -375,12 +379,12 @@
 (defn star-violations-region [grid id]
   (let [region (find-region-id grid id)
         stars (filter :star region)
-        colored (into #{} (filter :block region))]
+        colored (into #{} (filter :color region))]
     (filter identity
             (map (fn [star]
                    (let [minus (disj colored star)
-                         same-color (filter #(= (:block star)
-                                                (:block %))
+                         same-color (filter #(= (:color star)
+                                                (:color %))
                                             minus)]
                      (if (not= 1 (count same-color))
                        star)))
