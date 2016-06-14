@@ -451,23 +451,31 @@
                (do (deliver final-grid checked)
                    checked)))
       [stack @final-grid]
-      (loop [steps neis]
-        (if-let [step (first steps)]
-          (let [path (search adj-grid (conj stack step) check-fn (dec depth))]
-            (if path
-              path
-              (if (next steps)
-                (recur (next steps))))))))))
+      (if (pos? depth)
+        (loop [steps neis]
+          (if-let [step (first steps)]
+            (let [path (search adj-grid
+                               (conj stack step)
+                               check-fn
+                               (dec depth))]
+              (if path
+                path
+                (if (next steps)
+                  (recur (next steps)))))))))))
 
-(defn search-init [grid start check-fn]
-  (search grid [start] check-fn Integer/MAX_VALUE))
+(defn search-init [grid start check-fn depth]
+  (search grid [start] check-fn depth))
 
 (defn search-auto [grid check-fn]
   (loop [starts (find-starts grid)]
     (if-let [head (first starts)]
-      (if-let [result (search-init grid head check-fn)]
-         result
+      (if-let [result (search-init grid
+                                   head
+                                   check-fn
+                                   Integer/MAX_VALUE)]
+         [head result]
          (recur (next starts))))))
 
 (defn answer [grid]
-  (search-auto grid full-check))
+  (if-let [unbounded (search-auto grid full-check)]
+    (second unbounded)))
