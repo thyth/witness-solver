@@ -76,6 +76,8 @@
                     (do (print-red) (print "\u2501") (print-reset))
                     (print "\u2500"))
       (print "?"))))
+(defmethod print-element :default [_]
+  (print " "))
 
 (defn- print-row [grid row]
   (dorun (map #(print-element (grid [% row]))
@@ -128,6 +130,20 @@
                                  #{:left} "\u2519"
                                  #{:up} "\u251a"
                                  "\u251b")]
+                 ; degenerate horizontal
+                 #{:right :left} [[x y]
+                                  "\u2500"
+                                  (condp = active-sides
+                                    #{:right} "\u257c"
+                                    #{:left} "\u257e"
+                                    "\u2501")]
+                 ; degenerate vertical
+                 #{:up :down} [[x y]
+                               "\u2502"
+                               (condp = active-sides
+                                 #{:up} "\u257f"
+                                 #{:down} "\u257d"
+                                 "\u2503")]
                  #{:down :up :right} [[x y]
                                       "\u251c"
                                       (condp = active-sides
