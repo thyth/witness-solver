@@ -330,7 +330,9 @@
     (print-grid drawn)))
 
 (defn index-color [idx]
-  (let [shift (rem (+ idx 1) 7)]
+  (let [shift (or (and idx
+                       (rem (+ idx 1) 7))
+                  7)]
     (str "\u001B[3" shift "m")))
 
 (defn mark-block [grid vx vy idx]
