@@ -355,6 +355,10 @@
 (defn find-region-id [grid id]
   (find-predicate grid #(= id (:region %))))
 
+(defn iterate-region-violations [grid violation-fn]
+  (mapcat (partial violation-fn grid)
+          (range 0 (or (:regions grid) 0))))
+
 (defn block-violations-region [grid id]
   (let [region (find-region-id grid id)
         blocks (filter :square region)
@@ -363,11 +367,29 @@
       blocks)))
 
 (defn block-violations [grid]
-  (mapcat (partial block-violations-region grid)
-          (range 0 (or (:regions grid) 0))))
+  (iterate-region-violations grid block-violations-region))
 
 (defn block-satisfied? [grid]
   (empty? (block-violations grid)))
+
+(defn star-violations-region [grid id]
+  (let [region (find-region-id grid id)
+        stars (filter :star region)
+        colored (into #{} (filter :block region))]
+    (map (fn [star]
+           (let [minus (disj colored star)
+                 same-color (filter #(= (:block star)
+                                        (:block %))
+                                    minus)]
+             (if (not= 1 (count same-color))
+               star)))
+         stars)))
+
+(defn star-violations [grid]
+  (iterate-region-violations grid star-violations-region))
+
+(defn star-satisfied? [grid]
+  (empty (star-violations grid)))
 
 (defn find-starts [grid]
   (find-predicate grid :start))
@@ -385,7 +407,8 @@
 ; TODO anticonstraint by region
 (defn all-violations [grid]
   (concat (triangles-violations grid)
-          (block-violations grid)))
+          (block-violations grid)
+          (star-violations grid)))
 
 ; run all constraint checks
 (defn full-check [grid]
@@ -400,11 +423,14 @@
         y (:y top)
         neis (filter #(= :edge (:type %))
                      (remove :active (neighbors grid x y)))
-        adj-grid (assoc grid [x y] top)]
+        adj-grid (assoc grid [x y] top)
+        final-grid (promise)]
     #_(println "Neighs:" neis)
     (if (and (:end top)
-             (check-fn adj-grid))
-      [stack adj-grid]
+             (if-let [checked (check-fn adj-grid)]
+               (do (deliver final-grid checked)
+                   checked)))
+      [stack @final-grid]
       (loop [steps neis]
         (if-let [step (first steps)]
           (let [path (search adj-grid (conj stack step) check-fn)]
