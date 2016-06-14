@@ -236,6 +236,9 @@
 (defn mark-end [grid gx gy]
   (update grid [gx gy] merge {:end true}))
 
+(defn block [grid gx gy]
+  (update grid [gx gy] merge {:type :blocked}))
+
 (defn knockout [grid gx gy]
   (update grid [gx gy] (constantly nil)))
 
@@ -433,7 +436,7 @@
     (if (empty? (all-violations prechecked))
       prechecked)))
 
-(defn search [grid stack check-fn]
+(defn search [grid stack check-fn depth]
   #_(println "Stack:" stack)
   (let [top (assoc (peek stack) :active true)
         x (:x top)
@@ -450,17 +453,21 @@
       [stack @final-grid]
       (loop [steps neis]
         (if-let [step (first steps)]
-          (let [path (search adj-grid (conj stack step) check-fn)]
+          (let [path (search adj-grid (conj stack step) check-fn (dec depth))]
             (if path
               path
               (if (next steps)
                 (recur (next steps))))))))))
 
 (defn search-init [grid start check-fn]
-  (search grid [start] check-fn))
+  (search grid [start] check-fn Integer/MAX_VALUE))
 
 (defn search-auto [grid check-fn]
-  (search-init grid (first (find-starts grid)) check-fn))
+  (loop [starts (find-starts grid)]
+    (if-let [head (first starts)]
+      (if-let [result (search-init grid head check-fn)]
+         result
+         (recur (next starts))))))
 
 (defn answer [grid]
   (search-auto grid full-check))
