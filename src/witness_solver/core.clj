@@ -34,8 +34,14 @@
                             (even? y) :horizontal)}])))))
 
 
-(defn print-red []
+(defn print-active []
   (print "\u001b[34m"))
+
+(defn index-color [idx]
+  (let [shift (or (and idx
+                       (rem (+ idx 1) 7))
+                  7)]
+    (str "\u001B[3" shift "m")))
 
 (def reset-color "\u001b[37m")
 
@@ -47,21 +53,26 @@
 (defmethod print-element :vertex [v]
   (if (:draw v)
     (print (:draw v))
-    (cond
-      (:triangle v) (case (:triangle v)
-                      3 (print "\u2234")
-                      2 (print ":")
-                      1 (print "\u25b2")
-                      (print " "))
-      :default (print " "))))
+    (do
+      (if (:color v) (print (index-color (:color v))))
+      (cond
+       (:triangle v) (case (:triangle v)
+                       3 (print "\u2234")
+                       2 (print ":")
+                       1 (print "\u25b2")
+                       (print " "))
+       (:square v) (print "\u25a0")
+       (:star v) (print "\u2737")
+       :default (print " "))
+      (if (:color v) (print-reset)))))
 (defmethod print-element :edge [e]
   (if (:draw e)
     (if (:active e)
-      (do (print-red) (print (:draw e)) (print-reset))
+      (do (print-active) (print (:draw e)) (print-reset))
       (print (:draw e)))
     (case (:dir e)
       :junction (if (:active e)
-                  (do (print-red)
+                  (do (print-active)
                       (if (:bold-junction e)
                         (print (:bold-junction e))
                         (print "\u254b"))
@@ -70,10 +81,10 @@
                     (print (:junction e))
                     (print "\u253c")))
       :vertical (if (:active e)
-                  (do (print-red) (print "\u2503") (print-reset))
+                  (do (print-active) (print "\u2503") (print-reset))
                   (print "\u2502"))
       :horizontal (if (:active e)
-                    (do (print-red) (print "\u2501") (print-reset))
+                    (do (print-active) (print "\u2501") (print-reset))
                     (print "\u2500"))
       (print "?"))))
 (defmethod print-element :default [_]
@@ -144,6 +155,11 @@
                                  #{:up} "\u257f"
                                  #{:down} "\u257d"
                                  "\u2503")]
+                 ; degenerate singles
+                 #{:down} [[x y] "\u2577" "\u257b"]
+                 #{:up} [[x y] "\u2575" "\u2579"]
+                 #{:left} [[x y] "\u2574" "\u2578"]
+                 #{:right} [[x y] "\u2576" "\u267a"]
                  #{:down :up :right} [[x y]
                                       "\u251c"
                                       (condp = active-sides
@@ -219,6 +235,9 @@
 
 (defn mark-end [grid gx gy]
   (update grid [gx gy] merge {:end true}))
+
+(defn knockout [grid gx gy]
+  (update grid [gx gy] (constantly nil)))
 
 (defn update-vertex [grid x y f]
   (let [grid-x (inc (* 2 x))
@@ -329,22 +348,12 @@
                          marked))]
     (print-grid drawn)))
 
-(defn index-color [idx]
-  (let [shift (or (and idx
-                       (rem (+ idx 1) 7))
-                  7)]
-    (str "\u001B[3" shift "m")))
-
 (defn mark-block [grid vx vy idx]
-  (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
-                                                  "\u25a0" reset-color)
-                                       :color idx
+  (update-vertex grid vx vy #(merge % {:color idx
                                        :square true})))
 
 (defn mark-star [grid vx vy idx]
-  (update-vertex grid vx vy #(merge % {:draw (str (index-color idx)
-                                                  "\u2737" reset-color)
-                                       :color idx
+  (update-vertex grid vx vy #(merge % {:color idx
                                        :star true})))
 
 (defn mark-anticonstraint [grid vx vy]
@@ -413,9 +422,10 @@
 
 ; TODO anticonstraint by region
 (defn all-violations [grid]
-  (concat (triangles-violations grid)
-          (block-violations grid)
-          (star-violations grid)))
+  (-> []
+      (into (triangles-violations grid))
+      (into (block-violations grid))
+      (into (star-violations grid))))
 
 ; run all constraint checks
 (defn full-check [grid]
