@@ -479,3 +479,18 @@
 (defn answer [grid]
   (if-let [unbounded (search-auto grid full-check)]
     (second unbounded)))
+
+(defn answer-shortest [grid]
+  (if-let [unbounded (search-auto grid full-check)]
+    (let [[head [full-path _ :as result]] unbounded]
+      (loop [best result
+             lower 0
+             upper (count full-path)]
+        (if (= lower upper)
+          best
+          (let [mid (quot (+ upper lower)
+                          2)
+                candidate (search-init grid head full-check mid)]
+            (if candidate
+              (recur candidate lower mid)
+              (recur best (inc mid) upper))))))))
